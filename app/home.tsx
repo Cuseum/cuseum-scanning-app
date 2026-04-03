@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,12 @@ import {
   StatusBar,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { CameraView } from "expo-camera";
 import { deviceStore, DeviceConfig } from "../src/store/deviceStore";
 
 export default function HomeScreen() {
   const [config, setConfig] = useState<DeviceConfig | null>(null);
+  const scanningRef = useRef(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -21,6 +23,22 @@ export default function HomeScreen() {
   async function unpair() {
     await deviceStore.clear();
     router.replace("/pair");
+  }
+
+  async function scanCard() {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
+
+    const subscription = CameraView.onModernBarcodeScanned(({ data }) => {
+      subscription.remove();
+      scanningRef.current = false;
+      router.push({ pathname: "/scan-result", params: { barcode: data } });
+    });
+
+    await CameraView.launchScanner({
+      barcodeTypes: ["qr", "code128", "aztec", "pdf417"],
+    });
+    scanningRef.current = false;
   }
 
   if (!config) {
@@ -51,7 +69,11 @@ export default function HomeScreen() {
       </View>
 
       {/* Scan button */}
-      <TouchableOpacity style={styles.scanButton} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={styles.scanButton}
+        activeOpacity={0.85}
+        onPress={scanCard}
+      >
         <Text style={styles.scanButtonText}>Scan Card</Text>
       </TouchableOpacity>
 
