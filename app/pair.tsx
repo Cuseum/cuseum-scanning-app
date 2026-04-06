@@ -46,11 +46,14 @@ export default function PairScreen() {
       setStatus("pairing");
 
       try {
-        const { access_token } = await api.getToken();
-        const result = await api.pairDevice(scanner_device_id, access_token);
+        const tokenResp = await api.getToken();
+        const result = await api.pairDevice(
+          scanner_device_id,
+          tokenResp.access_token
+        );
         const locations = await api.getLocations(
           result.museum_id,
-          access_token
+          tokenResp.access_token
         );
 
         const defaultLocation = locations[0];
@@ -61,8 +64,11 @@ export default function PairScreen() {
 
         await deviceStore.save({
           scanner_device_id: result.scanner_device_id,
+          museum_id: result.museum_id,
           museum_name: result.museum_name,
-          access_token,
+          access_token: tokenResp.access_token,
+          refresh_token: tokenResp.refresh_token,
+          token_expires_at: Date.now() + tokenResp.expires_in * 1000,
           location_id: defaultLocation.id,
           location_name: defaultLocation.name,
         });

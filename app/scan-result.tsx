@@ -81,13 +81,10 @@ export default function ScanResultScreen() {
         return;
       }
       configRef.current = config;
-
-      const data = (await api.validateCard(
-        barcode,
-        config.access_token
-      )) as ValidationResult;
-      setResult(data);
       setLocationName(config.location_name ?? "");
+
+      const data = (await api.validateCard(barcode)) as ValidationResult;
+      setResult(data);
 
       if (data.reason === "active") {
         setState("valid");
@@ -97,14 +94,11 @@ export default function ScanResultScreen() {
         }
         // Story 13: record attendance automatically on valid scan
         api
-          .recordAttendance(
-            {
-              external_user_id: data.external_user_id,
-              location_id: config.location_id,
-              scanner_device_id: config.scanner_device_id,
-            },
-            config.access_token
-          )
+          .recordAttendance({
+            external_user_id: data.external_user_id,
+            location_id: config.location_id,
+            scanner_device_id: config.scanner_device_id,
+          })
           .catch(() => {
             // non-critical — don't block the UI
           });
@@ -156,14 +150,11 @@ export default function ScanResultScreen() {
     const config = configRef.current;
     if (!config || !result) return;
     api
-      .recordAttendance(
-        {
-          external_user_id: result.external_user_id,
-          location_id: config.location_id,
-          scanner_device_id: config.scanner_device_id,
-        },
-        config.access_token
-      )
+      .recordAttendance({
+        external_user_id: result.external_user_id,
+        location_id: config.location_id,
+        scanner_device_id: config.scanner_device_id,
+      })
       .catch(() => {
         // non-critical
       });

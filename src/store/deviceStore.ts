@@ -4,8 +4,11 @@ const DEVICE_CONFIG_KEY = "cuseum_device_config";
 
 export interface DeviceConfig {
   scanner_device_id: number;
+  museum_id: number;
   museum_name: string;
   access_token: string;
+  refresh_token: string;
+  token_expires_at: number; // Unix timestamp (ms)
   location_id: number;
   location_name: string;
 }

@@ -78,6 +78,15 @@ export default function HomeScreen() {
         <Text style={styles.scanButtonText}>Scan Card</Text>
       </TouchableOpacity>
 
+      {/* Search button */}
+      <TouchableOpacity
+        style={styles.searchButton}
+        activeOpacity={0.85}
+        onPress={() => router.push("/search")}
+      >
+        <Text style={styles.searchButtonText}>Search Member</Text>
+      </TouchableOpacity>
+
       {/* Footer */}
       <TouchableOpacity style={styles.unpairButton} onPress={unpair}>
         <Text style={styles.unpairText}>Unpair Device</Text>
@@ -156,6 +165,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#111",
+    letterSpacing: 0.5,
+  },
+  searchButton: {
+    backgroundColor: "#1e1e1e",
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: "center",
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  searchButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
     letterSpacing: 0.5,
   },
   unpairButton: {
