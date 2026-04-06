@@ -8,7 +8,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from "react-native";
-import { Audio } from "expo-av";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { CameraView } from "expo-camera";
 import { deviceStore } from "../src/store/deviceStore";
@@ -26,14 +26,9 @@ type ScreenState =
 
 async function playSound(uri: string) {
   try {
-    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-    const { sound } = await Audio.Sound.createAsync({ uri });
-    await sound.playAsync();
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        sound.unloadAsync();
-      }
-    });
+    await setAudioModeAsync({ playsInSilentMode: true });
+    const player = createAudioPlayer({ uri });
+    player.play();
   } catch {
     // sound failure is non-critical
   }
@@ -146,6 +141,7 @@ export default function ScanResultScreen() {
 
     const subscription = CameraView.onModernBarcodeScanned(({ data }) => {
       subscription.remove();
+      CameraView.dismissScanner();
       scanningRef.current = false;
       router.replace({ pathname: "/scan-result", params: { barcode: data } });
     });
