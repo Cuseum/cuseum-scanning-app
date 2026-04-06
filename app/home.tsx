@@ -31,6 +31,7 @@ export default function HomeScreen() {
 
     const subscription = CameraView.onModernBarcodeScanned(({ data }) => {
       subscription.remove();
+      CameraView.dismissScanner();
       scanningRef.current = false;
       router.push({ pathname: "/scan-result", params: { barcode: data } });
     });

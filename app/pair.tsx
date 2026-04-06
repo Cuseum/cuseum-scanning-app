@@ -26,6 +26,7 @@ export default function PairScreen() {
 
     const subscription = CameraView.onModernBarcodeScanned(async ({ data }) => {
       subscription.remove();
+      CameraView.dismissScanner();
 
       let scanner_device_id: number;
       try {
