@@ -211,7 +211,7 @@ export const api = {
     );
   },
 
-  /** Fetch locations. Uses a raw token (called during pairing, before config is stored). */
+  /** Fetch locations with an explicit token (called during pairing, before config is stored). */
   getLocations(
     museumId: number,
     token: string
@@ -220,6 +220,13 @@ export const api = {
       `${BASE_URL}/api/v5/locations?museum_id=${museumId}`,
       token
     );
+  },
+
+  /** Fetch locations for the paired museum. Token auto-managed. */
+  getLocationsForMuseum(
+    museumId: number
+  ): Promise<{ id: number; name: string; museum_id: number }[]> {
+    return request(`/api/v5/locations?museum_id=${museumId}`);
   },
 
   /** Validate a membership card barcode. Token auto-managed. */
