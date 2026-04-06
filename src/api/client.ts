@@ -260,4 +260,11 @@ export const api = {
       `/api/v5/external_users?${params}`
     );
   },
+
+  /** Unpair this scanner device in the CMS. Token auto-managed. */
+  unpairDevice(scannerDeviceId: number) {
+    return request(`/api/v5/scanner_devices/${scannerDeviceId}/unpair`, {
+      method: "PATCH",
+    });
+  },
 };

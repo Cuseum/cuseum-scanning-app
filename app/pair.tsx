@@ -55,16 +55,6 @@ export default function PairScreen() {
           scanner_device_id,
           tokenResp.access_token
         );
-        const locations = await api.getLocations(
-          result.museum_id,
-          tokenResp.access_token
-        );
-
-        const defaultLocation = locations[0];
-        if (!defaultLocation)
-          throw {
-            body: { full_error_messages: "No locations found for this museum" },
-          };
 
         await deviceStore.save({
           scanner_device_id: result.scanner_device_id,
@@ -73,8 +63,8 @@ export default function PairScreen() {
           access_token: tokenResp.access_token,
           refresh_token: tokenResp.refresh_token,
           token_expires_at: Date.now() + tokenResp.expires_in * 1000,
-          location_id: defaultLocation.id,
-          location_name: defaultLocation.name,
+          location_id: null,
+          location_name: null,
         });
 
         router.replace("/home");
