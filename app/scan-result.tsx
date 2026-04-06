@@ -14,6 +14,7 @@ import { CameraView } from "expo-camera";
 import { deviceStore } from "../src/store/deviceStore";
 import { api } from "../src/api/client";
 import { SOUNDS } from "../src/sounds";
+import { useTheme } from "../src/theme";
 import type { ValidationResult } from "../src/types";
 
 type ScreenState =
@@ -58,6 +59,7 @@ async function feedbackInvalid() {
 export default function ScanResultScreen() {
   const { barcode } = useLocalSearchParams<{ barcode: string }>();
   const router = useRouter();
+  const theme = useTheme();
 
   const [state, setState] = useState<ScreenState>("loading");
   const [result, setResult] = useState<ValidationResult | null>(null);
@@ -163,10 +165,12 @@ export default function ScanResultScreen() {
 
   if (state === "loading") {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <StatusBar barStyle="light-content" />
-        <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingText}>Validating card...</Text>
+      <View style={[styles.container, { backgroundColor: theme.bg }]}>
+        <StatusBar barStyle={theme.statusBar} />
+        <ActivityIndicator size="large" color={theme.textPrimary} />
+        <Text style={[styles.loadingText, { color: theme.textMuted }]}>
+          Validating card...
+        </Text>
       </View>
     );
   }
@@ -292,7 +296,10 @@ export default function ScanResultScreen() {
       <Text style={styles.icon}>✕</Text>
       <Text style={styles.statusTitle}>Error</Text>
       <Text style={styles.statusSubtitle}>{errorMessage}</Text>
-      <TouchableOpacity style={styles.button} onPress={scanAnother}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => router.replace("/home")}
+      >
         <Text style={styles.buttonText}>Go Back</Text>
       </TouchableOpacity>
     </View>
@@ -307,13 +314,11 @@ const styles = StyleSheet.create({
     padding: 32,
     gap: 16,
   },
-  loadingContainer: { backgroundColor: "#111" },
   validContainer: { backgroundColor: "#14532d" },
   expiredContainer: { backgroundColor: "#78350f" },
   entryAllowedContainer: { backgroundColor: "#1e3a5f" },
   invalidContainer: { backgroundColor: "#7f1d1d" },
   loadingText: {
-    color: "#aaa",
     fontSize: 16,
     marginTop: 12,
   },

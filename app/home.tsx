@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import {
   View,
   Text,
@@ -9,16 +9,16 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { CameraView } from "expo-camera";
-import { deviceStore, DeviceConfig } from "../src/store/deviceStore";
+import { deviceStore, useDeviceConfig } from "../src/store/deviceStore";
+import { LocationPicker } from "../src/components/LocationPicker";
+import { useTheme, Theme } from "../src/theme";
 
 export default function HomeScreen() {
-  const [config, setConfig] = useState<DeviceConfig | null>(null);
+  const config = useDeviceConfig();
   const scanningRef = useRef(false);
   const router = useRouter();
-
-  useEffect(() => {
-    deviceStore.load().then(setConfig);
-  }, []);
+  const theme = useTheme();
+  const s = styles(theme);
 
   async function unpair() {
     await deviceStore.clear();
@@ -44,151 +44,138 @@ export default function HomeScreen() {
 
   if (!config) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#fff" />
+      <View style={s.container}>
+        <ActivityIndicator size="large" color={theme.textPrimary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#111" />
+    <View style={s.container}>
+      <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.museumName}>{config.museum_name}</Text>
-        <View style={styles.pairedBadge}>
-          <View style={styles.pairedDot} />
-          <Text style={styles.pairedText}>Paired</Text>
+      <View style={s.header}>
+        <Text style={s.museumName}>{config.museum_name}</Text>
+        <View style={s.pairedBadge}>
+          <View style={s.pairedDot} />
+          <Text style={s.pairedText}>Paired</Text>
         </View>
       </View>
 
-      {/* Location */}
-      <View style={styles.locationRow}>
-        <Text style={styles.locationLabel}>LOCATION</Text>
-        <Text style={styles.locationName}>{config.location_name}</Text>
+      {/* Location picker */}
+      <View style={s.locationWrapper}>
+        <LocationPicker
+          locationName={config.location_name}
+          locationId={config.location_id}
+          museumId={config.museum_id}
+        />
       </View>
 
       {/* Scan button */}
       <TouchableOpacity
-        style={styles.scanButton}
+        style={s.scanButton}
         activeOpacity={0.85}
         onPress={scanCard}
       >
-        <Text style={styles.scanButtonText}>Scan Card</Text>
+        <Text style={s.scanButtonText}>Scan Card</Text>
       </TouchableOpacity>
 
       {/* Search button */}
       <TouchableOpacity
-        style={styles.searchButton}
+        style={s.searchButton}
         activeOpacity={0.85}
         onPress={() => router.push("/search")}
       >
-        <Text style={styles.searchButtonText}>Search Member</Text>
+        <Text style={s.searchButtonText}>Search Member</Text>
       </TouchableOpacity>
 
       {/* Footer */}
-      <TouchableOpacity style={styles.unpairButton} onPress={unpair}>
-        <Text style={styles.unpairText}>Unpair Device</Text>
+      <TouchableOpacity style={s.unpairButton} onPress={unpair}>
+        <Text style={s.unpairText}>Unpair Device</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#111",
-    paddingHorizontal: 28,
-    paddingTop: 64,
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 48,
-  },
-  museumName: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#fff",
-    flexShrink: 1,
-    marginRight: 12,
-  },
-  pairedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#1e1e1e",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 6,
-  },
-  pairedDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#4ade80",
-  },
-  pairedText: {
-    color: "#4ade80",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  locationRow: {
-    backgroundColor: "#1e1e1e",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 32,
-  },
-  locationLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#666",
-    letterSpacing: 1.2,
-    marginBottom: 6,
-  },
-  locationName: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  scanButton: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    paddingVertical: 20,
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  scanButtonText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111",
-    letterSpacing: 0.5,
-  },
-  searchButton: {
-    backgroundColor: "#1e1e1e",
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: "center",
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#333",
-  },
-  searchButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-    letterSpacing: 0.5,
-  },
-  unpairButton: {
-    alignItems: "center",
-    paddingVertical: 12,
-    marginTop: "auto",
-  },
-  unpairText: {
-    fontSize: 13,
-    color: "#444",
-  },
-});
+const styles = (t: Theme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: t.bg,
+      paddingHorizontal: 28,
+      paddingTop: 64,
+      paddingBottom: 40,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 48,
+    },
+    museumName: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: t.textPrimary,
+      flexShrink: 1,
+      marginRight: 12,
+    },
+    pairedBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: t.bgCard,
+      borderRadius: 20,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      gap: 6,
+    },
+    pairedDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: t.green,
+    },
+    pairedText: {
+      color: t.green,
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    locationWrapper: {
+      marginBottom: 32,
+    },
+    scanButton: {
+      backgroundColor: t.scanBtnBg,
+      borderRadius: 16,
+      paddingVertical: 20,
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    scanButtonText: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: t.scanBtnText,
+      letterSpacing: 0.5,
+    },
+    searchButton: {
+      backgroundColor: t.scanBtnBg,
+      borderRadius: 16,
+      paddingVertical: 18,
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    searchButtonText: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: t.scanBtnText,
+      letterSpacing: 0.5,
+    },
+    unpairButton: {
+      alignItems: "center",
+      paddingVertical: 12,
+      marginTop: "auto",
+    },
+    unpairText: {
+      fontSize: 13,
+      color: t.textMuted,
+    },
+  });
