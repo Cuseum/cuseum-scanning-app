@@ -10,8 +10,8 @@ export interface DeviceConfig {
   access_token: string;
   refresh_token: string;
   token_expires_at: number; // Unix timestamp (ms)
-  location_id: number;
-  location_name: string;
+  location_id: number | null;
+  location_name: string | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -17,8 +17,8 @@ type Location = { id: number; name: string; museum_id: number };
 type PickerState = "idle" | "loading" | "ready" | "error";
 
 interface Props {
-  locationName: string;
-  locationId: number;
+  locationName: string | null;
+  locationId: number | null;
   museumId: number;
 }
 
@@ -72,7 +72,9 @@ export function LocationPicker({ locationName, locationId, museumId }: Props) {
       >
         <View>
           <Text style={s.locationLabel}>CURRENT LOCATION</Text>
-          <Text style={s.locationName}>{locationName}</Text>
+          <Text style={[s.locationName, !locationName && s.locationNameEmpty]}>
+            {locationName ?? "Tap to select a location"}
+          </Text>
         </View>
         <Text style={s.chevron}>›</Text>
       </TouchableOpacity>
@@ -163,6 +165,10 @@ const styles = (t: Theme) =>
       fontSize: 15,
       fontWeight: "600",
       color: t.textPrimary,
+    },
+    locationNameEmpty: {
+      fontWeight: "400",
+      color: t.textPlaceholder,
     },
     chevron: {
       fontSize: 24,

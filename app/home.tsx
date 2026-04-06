@@ -6,10 +6,12 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   StatusBar,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { CameraView } from "expo-camera";
 import { deviceStore, useDeviceConfig } from "../src/store/deviceStore";
+import { api } from "../src/api/client";
 import { LocationPicker } from "../src/components/LocationPicker";
 import { useTheme, Theme } from "../src/theme";
 
@@ -21,11 +23,27 @@ export default function HomeScreen() {
   const s = styles(theme);
 
   async function unpair() {
+    const config = await deviceStore.load();
+    if (config?.scanner_device_id) {
+      try {
+        await api.unpairDevice(config.scanner_device_id);
+      } catch {
+        // non-critical — clear locally regardless
+      }
+    }
     await deviceStore.clear();
     router.replace("/pair");
   }
 
   async function scanCard() {
+    if (!config?.location_id) {
+      Alert.alert(
+        "No Location Selected",
+        "Please select a location before scanning.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
     if (scanningRef.current) return;
     scanningRef.current = true;
 
@@ -85,7 +103,17 @@ export default function HomeScreen() {
       <TouchableOpacity
         style={s.searchButton}
         activeOpacity={0.85}
-        onPress={() => router.push("/search")}
+        onPress={() => {
+          if (!config?.location_id) {
+            Alert.alert(
+              "No Location Selected",
+              "Please select a location before searching.",
+              [{ text: "OK" }]
+            );
+            return;
+          }
+          router.push("/search");
+        }}
       >
         <Text style={s.searchButtonText}>Search Member</Text>
       </TouchableOpacity>
