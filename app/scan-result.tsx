@@ -85,7 +85,10 @@ export default function ScanResultScreen() {
       configRef.current = config;
       setLocationName(config.location_name ?? "");
 
-      const data = (await api.validateCard(barcode)) as ValidationResult;
+      const data = (await api.validateCard(
+        barcode,
+        config.scanner_device_id
+      )) as ValidationResult;
       setResult(data);
 
       if (data.reason === "active") {

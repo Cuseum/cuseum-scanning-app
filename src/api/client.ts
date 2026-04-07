@@ -230,10 +230,10 @@ export const api = {
   },
 
   /** Validate a membership card barcode. Token auto-managed. */
-  validateCard(barcode: string) {
+  validateCard(barcode: string, scannerDeviceId: number) {
     return request("/api/v5/pass_books/validate", {
       method: "POST",
-      body: JSON.stringify({ barcode }),
+      body: JSON.stringify({ barcode, scanner_device_id: scannerDeviceId }),
     });
   },
 
