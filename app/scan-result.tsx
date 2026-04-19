@@ -17,6 +17,15 @@ import { SOUNDS } from "../src/sounds";
 import { useTheme } from "../src/theme";
 import type { ValidationResult } from "../src/types";
 
+// Parse date string as local date (no timezone shift)
+// API returns dates like "2025-12-31" or "2025-12-31T00:00:00Z"
+// Using new Date() shifts the date back 1 day in negative UTC offsets
+function formatExpiryDate(dateStr: string): string {
+  const datePart = dateStr.split("T")[0]; // take only "YYYY-MM-DD"
+  const [year, month, day] = datePart.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+}
+
 type ScreenState =
   | "loading"
   | "valid"
@@ -204,7 +213,7 @@ export default function ScanResultScreen() {
             result.member.expires_at !== "Infinity" && (
               <Text style={styles.memberDetail}>
                 Expires{" "}
-                {new Date(result.member.expires_at).toLocaleDateString()}
+                {formatExpiryDate(result.member.expires_at)}
               </Text>
             )}
         </View>
@@ -237,7 +246,7 @@ export default function ScanResultScreen() {
             result.member.expires_at !== "Infinity" && (
               <Text style={styles.memberDetail}>
                 Expired{" "}
-                {new Date(result.member.expires_at).toLocaleDateString()}
+                {formatExpiryDate(result.member.expires_at)}
               </Text>
             )}
         </View>

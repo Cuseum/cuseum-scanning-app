@@ -20,6 +20,13 @@ import type { Member } from "../src/types";
 import { LocationPicker } from "../src/components/LocationPicker";
 import { useTheme, Theme } from "../src/theme";
 
+// Parse date string as local date (no timezone shift)
+function formatExpiryDate(dateStr: string): string {
+  const datePart = dateStr.split("T")[0];
+  const [year, month, day] = datePart.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+}
+
 type SearchState = "idle" | "loading" | "done" | "error";
 type ModalState = "confirm" | "recording" | "success" | "error";
 
@@ -132,7 +139,7 @@ export default function SearchScreen() {
         <View style={s.rowRight}>
           {item.expires_at && item.expires_at !== "Infinity" ? (
             <Text style={s.rowExpiry}>
-              Exp. {new Date(item.expires_at).toLocaleDateString()}
+              Exp. {formatExpiryDate(item.expires_at)}
             </Text>
           ) : null}
           <View
