@@ -25,6 +25,5 @@ export type ValidationReason = "active" | "expired" | "no_card";
 export interface ValidationResult {
   external_user_id: number;
   member: Member;
-  membership_active: boolean;
   reason: ValidationReason;
 }
