@@ -14,7 +14,7 @@ import {
   Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useDeviceConfig } from "../src/store/deviceStore";
+import { useDeviceConfig, deviceStore } from "../src/store/deviceStore";
 import { api } from "../src/api/client";
 import type { Member } from "../src/types";
 import { LocationPicker } from "../src/components/LocationPicker";
@@ -109,6 +109,12 @@ export default function SearchScreen() {
         err?.body?.full_error_messages ??
         err?.body?.error ??
         "Failed to record attendance. Please try again.";
+      if (msg === "Location is not active") {
+        const current = await deviceStore.load();
+        if (current) {
+          deviceStore.save({ ...current, location_id: null, location_name: null });
+        }
+      }
       setModalError(msg);
       setModalState("error");
     }

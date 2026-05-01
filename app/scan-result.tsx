@@ -113,8 +113,16 @@ export default function ScanResultScreen() {
             location_id: config.location_id,
             scanner_device_id: config.scanner_device_id,
           })
-          .catch(() => {
-            // non-critical — don't block the UI
+          .catch((err: any) => {
+            const msg =
+              err?.body?.full_error_messages ??
+              err?.body?.error ??
+              "Attendance could not be recorded.";
+            if (msg === "Location is not active") {
+              deviceStore.save({ ...config, location_id: null, location_name: null });
+            }
+            setErrorMessage(msg);
+            setState("error");
           });
       } else if (data.reason === "expired") {
         setState("expired");
@@ -169,10 +177,20 @@ export default function ScanResultScreen() {
         location_id: config.location_id,
         scanner_device_id: config.scanner_device_id,
       })
-      .catch(() => {
-        // non-critical
+      .then(() => {
+        setState("entry_allowed");
+      })
+      .catch((err: any) => {
+        const msg =
+          err?.body?.full_error_messages ??
+          err?.body?.error ??
+          "Attendance could not be recorded.";
+        if (msg === "Location is not active") {
+          deviceStore.save({ ...config, location_id: null, location_name: null });
+        }
+        setErrorMessage(msg);
+        setState("error");
       });
-    setState("entry_allowed");
   }
 
   if (state === "loading") {
