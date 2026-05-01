@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -7,6 +8,7 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
+  AppState,
 } from "react-native";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import * as Haptics from "expo-haptics";
@@ -76,9 +78,34 @@ export default function ScanResultScreen() {
   const [locationName, setLocationName] = useState("");
   const feedbackFired = useRef(false);
   const scanningRef = useRef(false);
+  const attendanceRecorded = useRef(false);
+  const subscriptionRef = useRef<ReturnType<typeof CameraView.onModernBarcodeScanned> | null>(null);
   const configRef = useRef<
     import("../src/store/deviceStore").DeviceConfig | null
   >(null);
+
+  // When screen regains focus (scanner closed on Android without scanning),
+  // clean up any lingering subscription and reset the scanning flag
+  useFocusEffect(
+    useCallback(() => {
+      subscriptionRef.current?.remove();
+      subscriptionRef.current = null;
+      scanningRef.current = false;
+    }, [])
+  );
+
+  // Android: Google Code Scanner is a separate Activity — swipe back doesn't
+  // trigger useFocusEffect. Use AppState to detect when app returns to foreground.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        subscriptionRef.current?.remove();
+        subscriptionRef.current = null;
+        scanningRef.current = false;
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     validate();
@@ -107,23 +134,26 @@ export default function ScanResultScreen() {
           feedbackValid();
         }
         // Story 13: record attendance automatically on valid scan
-        api
-          .recordAttendance({
-            external_user_id: data.external_user_id,
-            location_id: config.location_id,
-            scanner_device_id: config.scanner_device_id,
-          })
-          .catch((err: any) => {
-            const msg =
-              err?.body?.full_error_messages ??
-              err?.body?.error ??
-              "Attendance could not be recorded.";
-            if (msg === "Location is not active") {
-              deviceStore.save({ ...config, location_id: null, location_name: null });
-            }
-            setErrorMessage(msg);
-            setState("error");
-          });
+        if (!attendanceRecorded.current) {
+          attendanceRecorded.current = true;
+          api
+            .recordAttendance({
+              external_user_id: data.external_user_id,
+              location_id: config.location_id,
+              scanner_device_id: config.scanner_device_id,
+            })
+            .catch((err: any) => {
+              const msg =
+                err?.body?.full_error_messages ??
+                err?.body?.error ??
+                "Attendance could not be recorded.";
+              if (msg === "Location is not active") {
+                deviceStore.save({ ...config, location_id: null, location_name: null });
+              }
+              setErrorMessage(msg);
+              setState("error");
+            });
+        }
       } else if (data.reason === "expired") {
         setState("expired");
         if (!feedbackFired.current) {
@@ -155,8 +185,9 @@ export default function ScanResultScreen() {
     if (scanningRef.current) return;
     scanningRef.current = true;
 
-    const subscription = CameraView.onModernBarcodeScanned(({ data }) => {
-      subscription.remove();
+    subscriptionRef.current = CameraView.onModernBarcodeScanned(({ data }) => {
+      subscriptionRef.current?.remove();
+      subscriptionRef.current = null;
       CameraView.dismissScanner();
       scanningRef.current = false;
       router.replace({ pathname: "/scan-result", params: { barcode: data } });
@@ -165,7 +196,6 @@ export default function ScanResultScreen() {
     await CameraView.launchScanner({
       barcodeTypes: ["qr", "code128", "aztec", "pdf417"],
     });
-    scanningRef.current = false;
   }
 
   function allowEntryAnyway() {

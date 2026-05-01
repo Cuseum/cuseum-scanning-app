@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Cuseum Scanner",
+    "name": "Cuseum Scanning App",
     "slug": "cuseum-scanning-app",
     "scheme": "cuseum-scanner",
-    "version": "1.0.2",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
