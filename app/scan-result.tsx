@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -7,6 +8,7 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
+  AppState,
 } from "react-native";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import * as Haptics from "expo-haptics";
@@ -76,9 +78,31 @@ export default function ScanResultScreen() {
   const [locationName, setLocationName] = useState("");
   const feedbackFired = useRef(false);
   const scanningRef = useRef(false);
+  const attendanceRecorded = useRef(false);
+  const subscriptionRef = useRef<ReturnType<typeof CameraView.onModernBarcodeScanned> | null>(null);
   const configRef = useRef<
     import("../src/store/deviceStore").DeviceConfig | null
   >(null);
+
+  // Clean up subscription when screen gains focus or app becomes active
+  useFocusEffect(
+    useCallback(() => {
+      subscriptionRef.current?.remove();
+      subscriptionRef.current = null;
+      scanningRef.current = false;
+    }, [])
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        subscriptionRef.current?.remove();
+        subscriptionRef.current = null;
+        scanningRef.current = false;
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     validate();
@@ -155,8 +179,11 @@ export default function ScanResultScreen() {
     if (scanningRef.current) return;
     scanningRef.current = true;
 
-    const subscription = CameraView.onModernBarcodeScanned(({ data }) => {
-      subscription.remove();
+    // Always remove previous subscription before registering a new one
+    subscriptionRef.current?.remove();
+    subscriptionRef.current = CameraView.onModernBarcodeScanned(({ data }) => {
+      subscriptionRef.current?.remove();
+      subscriptionRef.current = null;
       CameraView.dismissScanner();
       scanningRef.current = false;
       router.replace({ pathname: "/scan-result", params: { barcode: data } });
@@ -239,6 +266,9 @@ export default function ScanResultScreen() {
         <TouchableOpacity style={styles.button} onPress={scanAnother}>
           <Text style={styles.buttonText}>Scan Another</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.allowEntryButton} onPress={() => router.replace("/home")}>
+          <Text style={styles.allowEntryText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -279,6 +309,9 @@ export default function ScanResultScreen() {
         >
           <Text style={styles.allowEntryText}>Allow Entry Anyway</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.allowEntryButton} onPress={() => router.replace("/home")}>
+          <Text style={styles.allowEntryText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -297,6 +330,9 @@ export default function ScanResultScreen() {
         </Text>
         <TouchableOpacity style={styles.button} onPress={scanAnother}>
           <Text style={styles.buttonText}>Scan Another</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.allowEntryButton} onPress={() => router.replace("/home")}>
+          <Text style={styles.allowEntryText}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
