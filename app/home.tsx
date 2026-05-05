@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
+  AppState,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
 import { deviceStore, useDeviceConfig } from "../src/store/deviceStore";
 import { api } from "../src/api/client";
@@ -18,9 +20,29 @@ import { useTheme, Theme } from "../src/theme";
 export default function HomeScreen() {
   const config = useDeviceConfig();
   const scanningRef = useRef(false);
+  const subscriptionRef = useRef<ReturnType<typeof CameraView.onModernBarcodeScanned> | null>(null);
   const router = useRouter();
   const theme = useTheme();
   const s = styles(theme);
+
+  useFocusEffect(
+    useCallback(() => {
+      subscriptionRef.current?.remove();
+      subscriptionRef.current = null;
+      scanningRef.current = false;
+    }, [])
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        subscriptionRef.current?.remove();
+        subscriptionRef.current = null;
+        scanningRef.current = false;
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   async function unpair() {
     const config = await deviceStore.load();
@@ -47,8 +69,11 @@ export default function HomeScreen() {
     if (scanningRef.current) return;
     scanningRef.current = true;
 
-    const subscription = CameraView.onModernBarcodeScanned(({ data }) => {
-      subscription.remove();
+    // Always remove previous subscription before registering a new one
+    subscriptionRef.current?.remove();
+    subscriptionRef.current = CameraView.onModernBarcodeScanned(({ data }) => {
+      subscriptionRef.current?.remove();
+      subscriptionRef.current = null;
       CameraView.dismissScanner();
       scanningRef.current = false;
       router.push({ pathname: "/scan-result", params: { barcode: data } });
