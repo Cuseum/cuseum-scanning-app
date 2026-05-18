@@ -17,7 +17,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.cuseum.scannerapp",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Cuseum Scanner uses the camera to scan membership barcodes and QR codes at museum entry points to verify and record member attendance.",
+        "NSMicrophoneUsageDescription": "Cuseum Scanner requires microphone access as part of the camera framework used to scan membership barcodes at museum entry points."
       }
     },
     "android": {
