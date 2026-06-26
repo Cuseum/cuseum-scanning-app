@@ -17,6 +17,7 @@ import { deviceStore } from "../src/store/deviceStore";
 import { api } from "../src/api/client";
 import { SOUNDS } from "../src/sounds";
 import { useTheme } from "../src/theme";
+import { useImagerScanner, softTrigger } from "../src/janamScanner";
 import type { ValidationResult } from "../src/types";
 
 // Parse date string as local date (no timezone shift)
@@ -83,6 +84,21 @@ export default function ScanResultScreen() {
   const configRef = useRef<
     import("../src/store/deviceStore").DeviceConfig | null
   >(null);
+
+  // Once a result is shown, the hardware imager (Janam devices) can scan the next card.
+  const canScanNext =
+    state === "valid" ||
+    state === "expired" ||
+    state === "invalid" ||
+    state === "entry_allowed";
+  const { usingImager } = useImagerScanner({
+    enabled: canScanNext,
+    onScan: ({ data }) => {
+      if (scanningRef.current) return;
+      scanningRef.current = true;
+      router.replace({ pathname: "/scan-result", params: { barcode: data } });
+    },
+  });
 
   // Clean up subscription when screen gains focus or app becomes active
   useFocusEffect(
@@ -176,6 +192,12 @@ export default function ScanResultScreen() {
   }
 
   async function scanAnother() {
+    // On a Janam device, pull the imager trigger instead of opening the camera.
+    if (usingImager) {
+      softTrigger();
+      return;
+    }
+
     if (scanningRef.current) return;
     scanningRef.current = true;
 

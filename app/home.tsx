@@ -16,6 +16,7 @@ import { deviceStore, useDeviceConfig } from "../src/store/deviceStore";
 import { api } from "../src/api/client";
 import { LocationPicker } from "../src/components/LocationPicker";
 import { useTheme, Theme } from "../src/theme";
+import { useImagerScanner, softTrigger } from "../src/janamScanner";
 
 export default function HomeScreen() {
   const config = useDeviceConfig();
@@ -24,6 +25,19 @@ export default function HomeScreen() {
   const router = useRouter();
   const theme = useTheme();
   const s = styles(theme);
+
+  // On a Janam device the hardware imager drives scanning; the trigger only fires when a
+  // location is selected. On other devices this is inert and we fall back to the camera.
+  const { usingImager } = useImagerScanner({
+    enabled: !!config?.location_id,
+    onScan: ({ data }) => goToResult(data),
+  });
+
+  function goToResult(data: string) {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
+    router.push({ pathname: "/scan-result", params: { barcode: data } });
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -66,6 +80,12 @@ export default function HomeScreen() {
       );
       return;
     }
+    // On a Janam device, pull the imager trigger instead of opening the camera.
+    if (usingImager) {
+      softTrigger();
+      return;
+    }
+
     if (scanningRef.current) return;
     scanningRef.current = true;
 
@@ -123,6 +143,9 @@ export default function HomeScreen() {
       >
         <Text style={s.scanButtonText}>Scan Card</Text>
       </TouchableOpacity>
+      {usingImager ? (
+        <Text style={s.imagerHint}>Press the scan trigger or tap to scan</Text>
+      ) : null}
 
       {/* Search button */}
       <TouchableOpacity
@@ -208,6 +231,13 @@ const styles = (t: Theme) =>
       fontWeight: "700",
       color: t.scanBtnText,
       letterSpacing: 0.5,
+    },
+    imagerHint: {
+      fontSize: 13,
+      color: t.textMuted,
+      textAlign: "center",
+      marginTop: -8,
+      marginBottom: 16,
     },
     searchButton: {
       backgroundColor: t.scanBtnBg,

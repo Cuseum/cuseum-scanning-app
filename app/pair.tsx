@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { api } from "../src/api/client";
 import { deviceStore } from "../src/store/deviceStore";
 import { useTheme, Theme } from "../src/theme";
+import { useImagerScanner, softTrigger } from "../src/janamScanner";
 
 type PairStatus = "idle" | "pairing" | "error";
 
@@ -24,59 +25,78 @@ export default function PairScreen() {
   const theme = useTheme();
   const s = styles(theme);
 
+  // On a Janam device, the hardware imager reads the pairing QR (works on a screen too).
+  const { usingImager } = useImagerScanner({
+    enabled: status === "idle",
+    onScan: ({ data }) => {
+      if (scanningRef.current) return;
+      scanningRef.current = true;
+      handlePairData(data);
+    },
+  });
+
+  async function handlePairData(data: string) {
+    let scanner_device_id: number;
+    try {
+      const payload = JSON.parse(data);
+      scanner_device_id = payload.scanner_device_id;
+      if (!scanner_device_id) throw new Error("Missing scanner_device_id");
+    } catch {
+      scanningRef.current = false;
+      Alert.alert(
+        "Invalid QR Code",
+        "This QR code is not a valid pairing code.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    setStatus("pairing");
+
+    try {
+      const tokenResp = await api.getToken();
+      const result = await api.pairDevice(
+        scanner_device_id,
+        tokenResp.access_token
+      );
+
+      await deviceStore.save({
+        scanner_device_id: result.scanner_device_id,
+        museum_id: result.museum_id,
+        museum_name: result.museum_name,
+        access_token: tokenResp.access_token,
+        refresh_token: tokenResp.refresh_token,
+        token_expires_at: Date.now() + tokenResp.expires_in * 1000,
+        location_id: null,
+        location_name: null,
+      });
+
+      router.replace("/home");
+    } catch (err: any) {
+      const message =
+        err?.body?.full_error_messages ??
+        err?.body?.error_description ??
+        "Pairing failed. Please try again.";
+      setErrorMessage(message);
+      setStatus("error");
+      scanningRef.current = false;
+    }
+  }
+
   async function startScanner() {
+    // On a Janam device, pull the imager trigger instead of opening the camera.
+    if (usingImager) {
+      softTrigger();
+      return;
+    }
+
     if (scanningRef.current) return;
     scanningRef.current = true;
 
     const subscription = CameraView.onModernBarcodeScanned(async ({ data }) => {
       subscription.remove();
       CameraView.dismissScanner();
-
-      let scanner_device_id: number;
-      try {
-        const payload = JSON.parse(data);
-        scanner_device_id = payload.scanner_device_id;
-        if (!scanner_device_id) throw new Error("Missing scanner_device_id");
-      } catch {
-        scanningRef.current = false;
-        Alert.alert(
-          "Invalid QR Code",
-          "This QR code is not a valid pairing code.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-
-      setStatus("pairing");
-
-      try {
-        const tokenResp = await api.getToken();
-        const result = await api.pairDevice(
-          scanner_device_id,
-          tokenResp.access_token
-        );
-
-        await deviceStore.save({
-          scanner_device_id: result.scanner_device_id,
-          museum_id: result.museum_id,
-          museum_name: result.museum_name,
-          access_token: tokenResp.access_token,
-          refresh_token: tokenResp.refresh_token,
-          token_expires_at: Date.now() + tokenResp.expires_in * 1000,
-          location_id: null,
-          location_name: null,
-        });
-
-        router.replace("/home");
-      } catch (err: any) {
-        const message =
-          err?.body?.full_error_messages ??
-          err?.body?.error_description ??
-          "Pairing failed. Please try again.";
-        setErrorMessage(message);
-        setStatus("error");
-        scanningRef.current = false;
-      }
+      await handlePairData(data);
     });
 
     await CameraView.launchScanner({
@@ -119,6 +139,9 @@ export default function PairScreen() {
       <TouchableOpacity style={s.button} onPress={startScanner}>
         <Text style={s.buttonText}>Scan Pairing QR Code</Text>
       </TouchableOpacity>
+      {usingImager ? (
+        <Text style={s.subtitle}>Press the scan trigger or tap to scan</Text>
+      ) : null}
     </View>
   );
 }
