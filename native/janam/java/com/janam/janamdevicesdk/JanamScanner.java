@@ -301,6 +301,25 @@ public class JanamScanner
 		wantReadFailNotification = enabled;
 	}
 
+	// Cuseum: read/force the scanner result type so we can guarantee broadcast-only output
+	// (no clipboard / no keyboard wedge). DCD_RESULT_COPYPASTE copies each scan to the Android
+	// clipboard and DCD_RESULT_KBDMSG emulates keystrokes; DCD_RESULT_USERMSG delivers only the
+	// intent broadcast this wrapper listens for.
+	public int getResultType()
+	{
+		return scanManager != null ? scanManager.aDecodeGetResultType() : -1;
+	}
+
+	public void useBroadcastResultOnly()
+	{
+		resultTypeConfig.useExistingResultEvent = false;
+		resultTypeConfig.resultType             = ScanConst.ResultType.DCD_RESULT_USERMSG;
+		if (scanManager != null && scanManager.aDecodeGetResultType() != ScanConst.ResultType.DCD_RESULT_USERMSG)
+		{
+			scanManager.aDecodeSetResultType(ScanConst.ResultType.DCD_RESULT_USERMSG);
+		}
+	}
+
 	// application manual trigger control
 	public void triggerScanning(boolean flag)
 	{

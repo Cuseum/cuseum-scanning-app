@@ -2,6 +2,7 @@ package com.cuseum.scannerapp
 
 import android.app.Activity
 import android.os.Build
+import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.bridge.Promise
@@ -11,6 +12,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.UiThreadUtil
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.janam.device.sdk.ScanManager
 import com.janam.janamdevicesdk.JanamScanner
 
 /**
@@ -40,20 +42,49 @@ class JanamScannerModule(reactContext: ReactApplicationContext) :
 
   override fun getName(): String = NAME
 
+  // Fast path: most Janam terminals report "Janam" in a Build field.
   private fun isJanamHardware(): Boolean {
-    val fields = listOf(Build.MANUFACTURER, Build.BRAND, Build.MODEL)
+    val fields =
+        listOf(Build.MANUFACTURER, Build.BRAND, Build.MODEL, Build.DEVICE, Build.PRODUCT)
     return fields.any { it?.contains("janam", ignoreCase = true) == true }
+  }
+
+  // Authoritative check: can we actually talk to the device's scanner service? This works even
+  // if the Build strings don't say "janam". Returns false on phones/simulators where the Janam
+  // SDK has no service to bind to.
+  private fun hasJanamScanner(): Boolean {
+    return try {
+      val sm = ScanManager.getInstance() ?: return false
+      // A harmless query that only succeeds against the real scanner service.
+      sm.aDecodeGetDecodeEnable()
+      true
+    } catch (t: Throwable) {
+      Log.i(TAG, "hasJanamScanner: probe failed: ${t.message}")
+      false
+    }
   }
 
   @ReactMethod
   fun isJanamDevice(promise: Promise) {
-    promise.resolve(isJanamHardware())
+    Log.i(
+        TAG,
+        "Build: manufacturer=${Build.MANUFACTURER} brand=${Build.BRAND} " +
+            "model=${Build.MODEL} device=${Build.DEVICE} product=${Build.PRODUCT}"
+    )
+    val byBuild = isJanamHardware()
+    UiThreadUtil.runOnUiThread {
+      val result = byBuild || hasJanamScanner()
+      Log.i(TAG, "isJanamDevice: byBuild=$byBuild -> result=$result")
+      promise.resolve(result)
+    }
   }
 
   /** Lazily create (but do not yet open/resume) the scanner against the current activity. */
   private fun ensureScanner(): JanamScanner? {
     if (scanner != null) return scanner
-    if (initFailed || !isJanamHardware()) return null
+    // Don't gate on Build strings here — detection happens in isJanamDevice() and the JS layer
+    // only calls in on real devices. If creation fails (e.g. no scanner service), we give up.
+    if (initFailed) return null
     val activity: Activity = getCurrentActivity() ?: return null
     try {
       val instance = JanamScanner.createInstance(activity, false /* autoLifeCycle */)
@@ -66,7 +97,9 @@ class JanamScannerModule(reactContext: ReactApplicationContext) :
       // members' digital wallet passes (Apple/Google Wallet on a phone).
       instance.setPhoneMode(true)
       scanner = instance
+      Log.i(TAG, "JanamScanner created")
     } catch (t: Throwable) {
+      Log.w(TAG, "JanamScanner creation failed: ${t.message}")
       initFailed = true
       scanner = null
     }
@@ -84,13 +117,20 @@ class JanamScannerModule(reactContext: ReactApplicationContext) :
     if (!resumed) {
       s.openScanner()
       s.resumeScanner()
+      // Force broadcast-only output so scans aren't copied to the clipboard (COPYPASTE) or
+      // typed as keystrokes (KBDMSG). Log the before/after so we can confirm on-device.
+      val before = s.resultType
+      s.useBroadcastResultOnly()
+      Log.i(TAG, "resultType: before=$before after=${s.resultType} (0=USERMSG,1=KBDMSG,2=COPYPASTE,3=EVENT)")
       resumed = true
     }
+    Log.i(TAG, "enableScanning($wantEnabled) — hardware trigger ${if (wantEnabled) "armed" else "disarmed"}")
     s.enableScanning(wantEnabled)
   }
 
   private fun onDecode(decodeResult: JanamScanner.DecodeResult) {
     val data = decodeResult.decodeString ?: return
+    Log.i(TAG, "onDecode: '${data}' (${decodeResult.symName})")
     if (data.isEmpty()) return
     val map: WritableMap = Arguments.createMap()
     map.putString("data", data)
@@ -159,5 +199,6 @@ class JanamScannerModule(reactContext: ReactApplicationContext) :
   companion object {
     const val NAME = "JanamScanner"
     const val SCAN_EVENT = "JanamScan"
+    const val TAG = "JanamScanner"
   }
 }
