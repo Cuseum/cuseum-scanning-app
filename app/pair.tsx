@@ -13,7 +13,8 @@ import { useRouter } from "expo-router";
 import { api } from "../src/api/client";
 import { deviceStore } from "../src/store/deviceStore";
 import { useTheme, Theme } from "../src/theme";
-import { useImagerScanner, softTrigger } from "../src/janamScanner";
+import { useImagerScanner } from "../src/janamScanner";
+import { launchCameraScanner } from "../src/cameraScanner";
 
 type PairStatus = "idle" | "pairing" | "error";
 
@@ -26,7 +27,7 @@ export default function PairScreen() {
   const s = styles(theme);
 
   // On a Janam device, the hardware imager reads the pairing QR (works on a screen too).
-  const { usingImager } = useImagerScanner({
+  const { usingImager, scanWithImager } = useImagerScanner({
     enabled: status === "idle",
     onScan: ({ data }) => {
       if (scanningRef.current) return;
@@ -84,11 +85,9 @@ export default function PairScreen() {
   }
 
   async function startScanner() {
-    // On a Janam device, pull the imager trigger instead of opening the camera.
-    if (usingImager) {
-      softTrigger();
-      return;
-    }
+    // On a Janam device, pull the imager trigger instead of opening the camera. Returns false
+    // on any device without a working imager, and we continue to the camera below.
+    if (await scanWithImager()) return;
 
     if (scanningRef.current) return;
     scanningRef.current = true;
@@ -99,9 +98,24 @@ export default function PairScreen() {
       await handlePairData(data);
     });
 
-    await CameraView.launchScanner({
-      barcodeTypes: ["qr", "code128", "ean13", "ean8"],
-    });
+    const outcome = await launchCameraScanner([
+      "qr",
+      "code128",
+      "ean13",
+      "ean8",
+    ]);
+    if (outcome !== "scanned") {
+      // Nothing was scanned, so the barcode callback never ran — drop the listener here or the
+      // next tap bails out on `scanningRef` and the scanner never reopens.
+      subscription.remove();
+      if (outcome === "failed") {
+        Alert.alert(
+          "Scanner Unavailable",
+          "Could not open the camera scanner. Please try again.",
+          [{ text: "OK" }]
+        );
+      }
+    }
     scanningRef.current = false;
   }
 

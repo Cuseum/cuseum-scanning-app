@@ -32,6 +32,8 @@ class JanamScannerModule(reactContext: ReactApplicationContext) :
   private var scanner: JanamScanner? = null
   private var wantEnabled = false
   private var initFailed = false
+  // Cached hardware detection (null = not probed yet).
+  private var janamAvailable: Boolean? = null
   // Tracks whether the SDK broadcast receiver is currently registered, so we never
   // double-register it (which would deliver each scan twice).
   private var resumed = false
@@ -50,18 +52,42 @@ class JanamScannerModule(reactContext: ReactApplicationContext) :
   }
 
   // Authoritative check: can we actually talk to the device's scanner service? This works even
-  // if the Build strings don't say "janam". Returns false on phones/simulators where the Janam
-  // SDK has no service to bind to.
+  // if the Build strings don't say "janam".
+  //
+  // IMPORTANT: every ScanManager call catches its own failures and returns a sentinel (-1 for
+  // ints, "Unknown" for strings) instead of throwing — on a phone with no ScannerService the
+  // SDK throws RemoteException internally and swallows it. So the probe has to inspect the
+  // returned values; a try/catch alone reports every Android device as a Janam device.
   private fun hasJanamScanner(): Boolean {
     return try {
       val sm = ScanManager.getInstance() ?: return false
-      // A harmless query that only succeeds against the real scanner service.
-      sm.aDecodeGetDecodeEnable()
-      true
+      val decodeEnable = sm.aDecodeGetDecodeEnable() // 0/1 on a real scanner, -1 on failure
+      val apiVersion = sm.aDecodeGetAPIVersion() // version string, "Unknown" on failure
+      val moduleName = sm.aDecodeGetModuleName() // imager name, "Unknown" on failure
+      val ok = decodeEnable >= 0 || isRealValue(apiVersion) || isRealValue(moduleName)
+      Log.i(
+          TAG,
+          "hasJanamScanner: decodeEnable=$decodeEnable apiVersion=$apiVersion " +
+              "moduleName=$moduleName -> $ok"
+      )
+      ok
     } catch (t: Throwable) {
       Log.i(TAG, "hasJanamScanner: probe failed: ${t.message}")
       false
     }
+  }
+
+  private fun isRealValue(value: String?): Boolean =
+      !value.isNullOrBlank() && !value.equals("Unknown", ignoreCase = true)
+
+  /** Detection result, computed once and cached (null until probed). Must run on the UI thread. */
+  private fun janamAvailable(): Boolean {
+    janamAvailable?.let { return it }
+    val byBuild = isJanamHardware()
+    val result = byBuild || hasJanamScanner()
+    Log.i(TAG, "janamAvailable: byBuild=$byBuild -> result=$result")
+    janamAvailable = result
+    return result
   }
 
   @ReactMethod
@@ -71,20 +97,21 @@ class JanamScannerModule(reactContext: ReactApplicationContext) :
         "Build: manufacturer=${Build.MANUFACTURER} brand=${Build.BRAND} " +
             "model=${Build.MODEL} device=${Build.DEVICE} product=${Build.PRODUCT}"
     )
-    val byBuild = isJanamHardware()
-    UiThreadUtil.runOnUiThread {
-      val result = byBuild || hasJanamScanner()
-      Log.i(TAG, "isJanamDevice: byBuild=$byBuild -> result=$result")
-      promise.resolve(result)
-    }
+    UiThreadUtil.runOnUiThread { promise.resolve(janamAvailable()) }
   }
 
   /** Lazily create (but do not yet open/resume) the scanner against the current activity. */
   private fun ensureScanner(): JanamScanner? {
     if (scanner != null) return scanner
-    // Don't gate on Build strings here — detection happens in isJanamDevice() and the JS layer
-    // only calls in on real devices. If creation fails (e.g. no scanner service), we give up.
     if (initFailed) return null
+    // Gate on detection: on non-Janam hardware every SDK call silently no-ops, so creating a
+    // scanner here would leave the app waiting on an imager that can never fire instead of
+    // falling back to expo-camera.
+    if (!janamAvailable()) {
+      Log.i(TAG, "ensureScanner: not a Janam device — camera fallback")
+      initFailed = true
+      return null
+    }
     val activity: Activity = getCurrentActivity() ?: return null
     try {
       val instance = JanamScanner.createInstance(activity, false /* autoLifeCycle */)
@@ -152,14 +179,23 @@ class JanamScannerModule(reactContext: ReactApplicationContext) :
     UiThreadUtil.runOnUiThread { resumeAndApply() }
   }
 
-  /** Programmatically pull the trigger (soft scan) — used by on-screen scan buttons. */
+  /**
+   * Programmatically pull the trigger (soft scan) — used by on-screen scan buttons. Resolves
+   * true when the imager was actually armed and false when there is no imager to arm, so the
+   * JS layer can fall back to the camera instead of silently doing nothing.
+   */
   @ReactMethod
-  fun softTrigger() {
+  fun softTrigger(promise: Promise) {
     UiThreadUtil.runOnUiThread {
-      val s = ensureScanner() ?: return@runOnUiThread
+      val s = ensureScanner()
+      if (s == null) {
+        promise.resolve(false)
+        return@runOnUiThread
+      }
       resumeAndApply()
       s.enableScanning(true)
       s.triggerScanning(true)
+      promise.resolve(true)
     }
   }
 
