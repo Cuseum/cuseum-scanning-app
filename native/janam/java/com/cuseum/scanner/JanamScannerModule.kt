@@ -1,4 +1,4 @@
-package com.cuseum.scannerapp
+package com.cuseum.scanner
 
 import android.app.Activity
 import android.os.Build

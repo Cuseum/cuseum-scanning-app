@@ -1,4 +1,4 @@
-package com.cuseum.scannerapp
+package com.cuseum.scanner
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
